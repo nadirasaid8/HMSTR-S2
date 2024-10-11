@@ -1,0 +1,9 @@
+{
+    "use_proxy": false,
+    "DELAY_UPGRADE": false,
+    "MIN_DELAY_UPGRADE": 4,
+    "MAX_DELAY_UPGRADE": 6,
+    "DELAY_EACH_ACCOUNT": 5,
+    "MAXIMUM_PRICE": 2,
+    "LOOP_COUNTDOWN": 3800
+}
