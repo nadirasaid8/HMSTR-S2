@@ -97,15 +97,14 @@ python main.py --setup mysetup
 
 
 ### Create a `proxies.txt` file
+The `proxies.txt` file should be in the root directory and contain a list of proxies in the format `username:password@host:port`.
 
-    The `proxies.txt` file should be in the root directory and contain a list of proxies in the format `username:password@host:port`.
+Example:
 
-    Example:
-
-    ```yaml
-    socks5://user1:pass1@ip1:port1
-    user2:pass2@ip2:port2
-    ```
+```yaml
+socks5://user1:pass1@ip1:port1
+user2:pass2@ip2:port2
+```
 
 ## RUN THE BOT
 after that run the bot by writing the command
