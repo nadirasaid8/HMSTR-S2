@@ -1,5 +1,4 @@
 {
-    "use_proxy": false,
     "DELAY_UPGRADE": false,
     "MIN_DELAY_UPGRADE": 4,
     "MAX_DELAY_UPGRADE": 6,
