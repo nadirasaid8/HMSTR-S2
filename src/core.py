@@ -43,9 +43,9 @@ def show_menu(use_proxy, auto_upgrade, tasks_on, promo_on):
     menu = f"""
 {kng} Choose Setup :{reset}
 {kng}  1.{reset} Use Proxy                  : {get_status(use_proxy)}
-{kng}  1.{reset} Auto Buy Upgrade           : {get_status(auto_upgrade)}
-{kng}  2.{reset} Auto Complete Tasks        : {get_status(tasks_on)} 
-{kng}  3.{reset} Auto Redeem Promo          : {get_status(promo_on)} {kng}[ SOON ]
+{kng}  2.{reset} Auto Buy Upgrade           : {get_status(auto_upgrade)}
+{kng}  3.{reset} Auto Complete Tasks        : {get_status(tasks_on)} 
+{kng}  4.{reset} Auto Redeem Promo          : {get_status(promo_on)} {kng}[ SOON ]
 {mrh}    {pth} --------------------------------{reset}
 {kng}  8.{reset} {kng}Save Setup{reset}
 {kng}  9.{reset} {mrh}Reset Setup{reset}
