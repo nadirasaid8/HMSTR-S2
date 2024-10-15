@@ -1,7 +1,7 @@
 # Hms Farming Bot 
 This is a bot that can help you to run 'HMSTR Season 2' telegram bot!
 
-[TELEGRAM CHANNEL](https://t.me/Deeplchain) | [TWITTER](https://x.com/itsjaw_real)
+[TELEGRAM CHANNEL](https://t.me/Deeplchain) | [CONTACT](https://t.me/imspecials)
 
 ### This bot helpfull?  Please support me by buying me a coffee: 
 ```
@@ -123,7 +123,7 @@ python main.py
 This project is licensed under the `NONE` License.
 
 ## Contact
-If you have any questions or suggestions, please feel free to contact us at [ https://t.me/DeeplChainSup ].
+If you have any questions or suggestions, please feel free to contact us at [ https://t.me/DeeplChain ].
 
 ## Thanks to :
 
