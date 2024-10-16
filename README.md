@@ -85,12 +85,12 @@ python main.py --setup mysetup
 
   ```bash
 {
-    "use_proxy": false,
     "DELAY_UPGRADE": false,
     "MIN_DELAY_UPGRADE": 4,
     "MAX_DELAY_UPGRADE": 6,
+    "MAXIMUM_PRICE": 4,
     "DELAY_EACH_ACCOUNT": 5,
-    "MAXIMUM_PRICE": 2,
+    "SLEEP_BEFORE_START": 5,
     "LOOP_COUNTDOWN": 3800
 }
   ```
