@@ -1,4 +1,5 @@
 {
+    "use_proxy": false,
     "auto_upgrade": true,
     "_method": "4",
     "tasks_on": true,

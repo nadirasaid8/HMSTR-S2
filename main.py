@@ -1,6 +1,6 @@
 import sys
 
-from src.core import main
+from src.launcher import main
 from src.deeplchain import banner, log, mrh
 
 if __name__ == "__main__":

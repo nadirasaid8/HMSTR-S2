@@ -15,11 +15,3 @@ def get_headers(token: str, account) -> dict:
         'User-Agent': get_user_agent(account),
         'Content-Type': 'application/json'
     }
-
-def load_tokens(filename):
-    try:
-        with open(filename, 'r') as file:
-            return [line.strip() for line in file]
-    except FileNotFoundError:
-        print(f"File not found: {filename}")
-        return []

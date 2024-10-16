@@ -1,63 +1,97 @@
+import os
 import json
 import time
 import requests
 from colorama import *
 from src.headers import get_headers
-from src.script.generate_ua import get_user_agent
 from src.deeplchain import read_config, log, mrh
 
 init(autoreset=True)
 config = read_config()
 timeouts = config.get('LOOP_COUNTDOWN', 3800)
 
-def get_token(init_data_raw, account, retries=5, backoff_factor=0.5, timeout=timeouts, proxies=None):
-    url = 'https://api.hamsterkombatgame.io/auth/auth-by-telegram-webapp'
-    headers = {
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
-        'Origin': 'https://hamsterkombatgame.io',
-        'Referer': 'https://hamsterkombatgame.io/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site',
-        'User-Agent': get_user_agent(account),
-        'accept': 'application/json',
-        'content-type': 'application/json'
-    }
-    data = json.dumps({"initDataRaw": init_data_raw})
+class oAuth:
+    def __init__(self, token=None, account=None):
+        self.base_url = 'https://api.hamsterkombatgame.io'
+        self.headers = get_headers(token, account) if token else {}
 
-    for attempt in range(retries):
+    @staticmethod
+    def local_token(account: str):
+        if not os.path.exists("tokens.json"):
+            with open("tokens.json", "w") as f:
+                json.dump({}, f)
+        with open("tokens.json") as f:
+            return json.load(f).get(str(account))
+
+    def save_token(self, account, token):
         try:
-            res = requests.post(url, headers=headers, data=data, timeout=timeout, proxies=proxies)
-            res.raise_for_status()
-            return res.json()['authToken']
-        except (requests.ConnectionError, requests.Timeout) as e:
-            log(mrh + f"Connection error on attempt {attempt + 1}: {e}", flush=True)
-        except Exception as e:
-            log(mrh + f"Failed Get Token. Error: {e}", flush=True)
-            try:
-                error_data = res.json()
-                if "invalid" in error_data.get("error_code", "").lower():
-                    log(mrh + "Failed Get Token. Invalid init data", flush=True)
-                else:
-                    log(mrh + f"Failed Get Token. {error_data}", flush=True)
-            except Exception as json_error:
-                log(mrh + f"Failed Get Token and unable to parse error response: {json_error}", flush=True)
-            return None
-        time.sleep(backoff_factor * (2 ** attempt))
-    log(mrh + "Failed to get token after multiple attempts.", flush=True)
-    return None
+            with open("tokens.json", "r+") as f:
+                tokens = json.load(f)
+        except FileNotFoundError:
+            tokens = {}
+        tokens[str(account)] = token
+        with open("tokens.json", "w") as f:
+            json.dump(tokens, f, indent=4)
 
-def authenticate(token, account, proxies=None):
-    url = 'https://api.hamsterkombatgame.io/auth/account-info'
-    headers = get_headers(token, account)
-    payload = {}
-    
-    try:
-        res = requests.post(url, headers=headers, json=payload, proxies=proxies)
-        res.raise_for_status()
-    except Exception as e:
-        log(mrh + f"Token Failed : {token[:4]}********* | Status : {res.status_code} | Error: {e}", flush=True)
+    def get_token(self, init_data, account, retries=5, backoff_factor=0.5, timeout=timeouts, proxies=None):
+        url = f'{self.base_url}/auth/auth-by-telegram-webapp'
+        headers = {
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Origin': 'https://hamsterkombatgame.io',
+            'Referer': 'https://hamsterkombatgame.io/',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-site',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 12.0; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.8.5718.71 Mobile Safari/537.36',
+            'accept': 'application/json',
+            'content-type': 'application/json'
+        }
+        data = json.dumps({"initDataRaw": init_data})
+
+        for attempt in range(retries):
+            try:
+                res = requests.post(url, headers=headers, data=data, timeout=timeout, proxies=proxies)
+                res.raise_for_status()
+                response_data = res.json()
+
+                token = response_data.get('authToken')
+                if token:
+                    self.save_token(account, token)
+                    return token
+
+                log(mrh + "No auth token found in the response.", flush=True)
+                return None
+
+            except (requests.ConnectionError, requests.Timeout) as e:
+                log(mrh + f"Connection error on attempt {attempt + 1}: {e}", flush=True)
+            except Exception as e:
+                log(mrh + f"Failed to get token. Error: {e}", flush=True)
+                try:
+                    error_data = res.json()
+                    if "invalid" in error_data.get("error_code", "").lower():
+                        log(mrh + "Failed to get token. Invalid init data", flush=True)
+                    else:
+                        log(mrh + f"Failed to get token. {error_data}", flush=True)
+                except Exception as json_error:
+                    log(mrh + f"Failed to get token and unable to parse error response: {json_error}", flush=True)
+                return None
+            
+            time.sleep(backoff_factor * (2 ** attempt))
+        
+        log(mrh + "Failed to get token after multiple attempts.", flush=True)
         return None
 
-    return res
+    def authenticate(self, token, account, proxies=None):
+        self.headers = get_headers(token, account)
+        url = f'{self.base_url}/auth/account-info'
+        payload = {}
+        
+        try:
+            res = requests.post(url, headers=self.headers, json=payload, proxies=proxies)
+            res.raise_for_status()
+        except Exception as e:
+            log(mrh + f"Token Failed : {token[:4]}********* | Status : {res.status_code} | Error: {e}", flush=True)
+            return None
+
+        return res

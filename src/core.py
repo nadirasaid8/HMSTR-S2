@@ -1,214 +1,269 @@
-import time
-import requests
-import argparse
 import json
-import contextlib
-import urllib.parse
-import sys
-import base64
-from colorama import *
-from src.headers import load_tokens
-from src.auth import get_token, authenticate
-from src.utils import HamsterKombat
-from src.promo import redeem_promo
-from .script.generate_info import Generate
-
+import time
+import random
+import requests
 from . import *
+from colorama import *
+from datetime import datetime
+from random import randint
+from src.headers import get_headers
+from base64 import urlsafe_b64decode
 
-init(autoreset=True)
 config = read_config()
 
-def get_status(status):
-    return Fore.GREEN + "ON" + Style.RESET_ALL if status else Fore.RED + "OFF" + Style.RESET_ALL
+class HamsterKombat:
+    def __init__(self, token, account):
+        self.headers = get_headers(token, account)
+        self.base_url = f"https://api.hamsterkombatgame.io"
 
-def save_setup(setup_name, setup_data):
-    with open(f'src/config/{setup_name}.json', 'w') as file:
-        json.dump(setup_data, file, indent=4)
-    awak()
-    print(hju + f" Setup saved on {kng}setup{pth}/{setup_name}.json")
-    with open(f'src/config/{setup_name}.json', 'r') as file:
-        setup_content = json.load(file)
-        print(f"\n{json.dumps(setup_content, indent=4)}\n")
-    print(hju + f" Quick start : {pth}python main.py {htm}--setup {pth}{setup_name}")
-    input(f" Press Enter to continue...")
-
-def load_setup_from_file(setup_file):
-    with open(setup_file, 'r') as file:
-        setup = json.load(file)
-    return setup
-
-def show_menu(use_proxy, auto_upgrade, tasks_on, promo_on):
-    clear()
-    banner()
-    menu = f"""
-{kng} Choose Setup :{reset}
-{kng}  1.{reset} Use Proxy                  : {get_status(use_proxy)}
-{kng}  2.{reset} Auto Buy Upgrade           : {get_status(auto_upgrade)}
-{kng}  3.{reset} Auto Complete Tasks        : {get_status(tasks_on)} 
-{kng}  4.{reset} Auto Redeem Promo          : {get_status(promo_on)} {kng}[ SOON ]
-{mrh}    {pth} --------------------------------{reset}
-{kng}  8.{reset} {kng}Save Setup{reset}
-{kng}  9.{reset} {mrh}Reset Setup{reset}
-{kng}  0.{reset} {hju}Start Bot {kng}(default){reset}
-    """
-    print(menu)
-    choice = input(" Enter your choice (1/2/3/4/5/6/7/8): ")
-    log_line()
-    return choice
-
-def show_upgrade_menu():
-    clear()
-    banner()
-    config = read_config()
-    MAXIMUM_PRICE = config.get('MAXIMUM_PRICE', 2)
-    menu = f"""
-{hju} Active Menu {kng}'Auto Buy Upgrade'{reset}
-{htm} {'~' * 50}{reset}
-{kng} Upgrade Method:{reset}
-{kng} 1. {pth}highest profit{reset}
-{kng} 2. {pth}lowest price{reset}
-{kng} 3. {pth}price less than balance{reset}
-{kng} 4. {pth}upgrade by payback {hju}[ enchanced ]{reset}
-{kng} 5. {pth}back to {bru}main menu{reset}
-
-{kng} [INFO]{reset} Current Max Price : {pth}{number(MAXIMUM_PRICE)}{reset}
-    """
-    print(menu)
-    choice = input(" Enter your choice (1/2/3/4): ")
-    return choice
-
-def run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method):
-    gen = Generate()
-    func = base64.b64encode(gen.milo.encode('utf-8')).decode('utf-8')
-    cek_task_dict = {}
-    DELAY_EACH_ACCOUNT = config.get('DELAY_EACH_ACCOUNT', 0)
-    LOOP_COUNTDOWN = config.get('LOOP_COUNTDOWN', 0)
-    awak()
-    proxy_index = 0 
-    while True:
+    def clicker_config(self, proxies=None):
+        url = f'{self.base_url}/interlude/config'
         try:
-            init_data_list = load_tokens('data.txt')
-            for idx, init_data in enumerate(init_data_list):
-                total = len(init_data_list)
-                proxy_dict = None
-                account = f"{idx + 1}/{total}"
+            response = requests.post(url, headers=self.headers, proxies=proxies)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"Failed to retrieve config, status code: {response.status_code}"}
+        except requests.exceptions.RequestException as e:
+            return {"error": str(e)}
 
-                if use_proxy and gen.proxies:
-                    proxy_dict = gen.proxies[proxy_index]
+    def is_expired(self, token: str):
+        if token is None or isinstance(token, bool):
+            return True
+        header, payload, sign = token.split(".")
+        deload = urlsafe_b64decode(payload + "==")
+        jeload = json.loads(deload)
+        now = (datetime.now().timestamp()) + 300
+        if now > jeload.get("exp"):
+            return True
+        return False
 
-                query_id = init_data 
-                if query_id:
-                    token = get_token(init_data, account, proxies=proxy_dict)
-                    if token:
-                        ham = HamsterKombat(token, account)
-                        try:
-                            fake_info = gen.faking_info(token, account, current_proxy=proxy_dict)
-                            print(f"IP: {fake_info['ip']} | ISP: {fake_info['asn_org']} | Country: {fake_info['country_code']}")
-                            print(f"City: {fake_info['city_name']} | Latitude: {fake_info['latitude']} | Longitude: {fake_info['longitude']}")
-                            log_line()    
-                            res = authenticate(token, account, proxies=proxy_dict)
-                            if res.status_code == 200:
-                                user_data = res.json()
-                                username = user_data.get('accountInfo', {}).get('name', 'Please set username first')
+    def _sync(self, proxies=None):
+        url = f'{self.base_url}/interlude/sync'
+        try:
+            response = requests.post(url, headers=self.headers, proxies=proxies)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {}
+        except requests.exceptions.RequestException as e:
+            return {"error": str(e)}
+        
+    def manage_skins(self, proxies=None):
+        sync_data = self._sync(proxies)
+        available_skins = sync_data.get('interludeUser', {}).get('skin', {}).get('available', [])
+        selected_skin = sync_data.get('interludeUser', {}).get('skin', {}).get('selectedSkinId', None)
 
-                                log(bru + f"Account : {pth}{account}")
-                                try:
-                                    exec(base64.b64decode(func).decode('utf-8'))
-                                except Exception as e:
-                                    continue
-                                log(kng + f"Login as {pth}{username}")
-                                clicker_data = ham._sync(proxies=proxy_dict)
-                                if 'interludeUser' in clicker_data:
-                                    ham.clicker_config(proxies=proxy_dict)
-                                    user_info = clicker_data['interludeUser']
-                                    balance_coins = user_info.get('totalDiamonds', 0)
-                                    earn_passive_per_hour = user_info.get('earnPassivePerSec', 0)
-                                    exchange_name = user_info.get('exchangeId', 'Unknown')
+        url = f'{self.base_url}/interlude/get-skin'
+        try:
+            response = requests.post(url, headers=self.headers, proxies=proxies)
+            if response.status_code == 200:
+                skins = response.json().get('skins', [])
+            else:
+                return
+        except requests.exceptions.RequestException as e:
+            log(f"Error fetching skins: {e}")
+            return
 
-                                    log(hju + f"Diamond: {pth}{number(balance_coins)}")
-                                    log(hju + f"Income: {pth}{earn_passive_per_hour} /h")
-                                    log(hju + f"CEO of {pth}{exchange_name} {hju}exchange")
-                                    log(hju + f"Success syncing balance while idle")
-                                    ham.manage_skins(proxies=proxy_dict)
+        max_skin_id = None
+        for skin in skins:
+            if skin['isAvailable'] and not skin['isExpired']:
+                skin_id = skin['id']
+                if skin_id not in [s['skinId'] for s in available_skins]:
+                    payload = {"skinId": skin_id, "timestamp": int(datetime.now().timestamp())}
+                    buy_url = f'{self.base_url}/interlude/buy-skin'
+                    buy_response = requests.post(buy_url, headers=self.headers, json=payload, proxies=proxies)
+                    if buy_response.status_code == 200:
+                        log(hju + f"Successfully bought {skin_id}")
+                        rentime = random.uniform(1, 2.1)
+                        time.sleep(rentime)
 
-                                if tasks_on:
-                                    ham.execute(token, cek_task_dict, proxies=proxy_dict)
+                if max_skin_id is None or int(skin_id.replace('skin', '')) > int(max_skin_id.replace('skin', '')):
+                    max_skin_id = skin_id
 
-                                if auto_upgrade:
-                                    ham.upgrade_passive(_method, proxies=proxy_dict)
+        if max_skin_id and max_skin_id != selected_skin:
+            payload = {"skinId": max_skin_id}
+            select_url = f'{self.base_url}/interlude/select-skin'
+            select_response = requests.post(select_url, headers=self.headers, json=payload, proxies=proxies)
+            if select_response.status_code == 200:
+                log(hju + f"Successfully selected {max_skin_id}")
+        else:
+            log(hju + "Already selected highest skin id")
 
-                            log_line()
-                            countdown_timer(DELAY_EACH_ACCOUNT)
-                            proxy_index += 1
-
-                        except requests.RequestException as e:
-                            log(mrh + f"Request exception for token {pth}{token[:4]}****: {str(e)}")
-                            proxy_index += 1
-                            if proxy_index >= len(gen.proxies):
-                                proxy_index = 0
-                    else:
-                        log(mrh + f"Failed to login token {pth}{token[:4]}*********\n", flush=True)
-
-            countdown_timer(LOOP_COUNTDOWN)
-
+    def exchange(self, proxies=None):
+        url = f'{self.base_url}/interlude/select-exchange'
+        choose = random.choice(['okx', 'bybit', 'binance', 'bingx'])
+        payload = {
+            "exchangeId": choose
+        }
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, proxies=proxies)
+            if response.status_code == 200:
+                log(hju + f"Choose {choose} exchanged successfully")
+            else:
+                log(mrh + "Failed to choose exchange")
         except Exception as e:
-            log(mrh + f"An error occurred in the main loop: {kng}{str(e)}")
-            countdown_timer(10)
+            log(mrh + f"Error exchanging token: {e}")
 
-def main():
-    parser = argparse.ArgumentParser(description="Run the bot with a specified setup.")
-    parser.add_argument('--setup', type=str, help='Specify the setup file to load')
-    args = parser.parse_args()
+    def execute(self, token, cek_task_dict, proxies: None):
+        if token not in cek_task_dict:
+            cek_task_dict[token] = False
+        
+        if not cek_task_dict[token]:
+            list_url = f'{self.base_url}/interlude/list-tasks'
+            list_res = requests.post(list_url, headers=self.headers, proxies=proxies)
 
-    if args.setup:
-        setup_file = f'src/config/{args.setup}.json'
-        setup_data = load_setup_from_file(setup_file)
-        use_proxy = setup_data.get('use_proxy', False)
-        auto_upgrade = setup_data.get('auto_upgrade', False)
-        tasks_on = setup_data.get('task_on', False)
-        promo_on = setup_data.get('promo_on', False)
-        _method = setup_data.get('_method', None)
-        run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method)
-    else:
-        use_proxy = False
-        auto_upgrade = False
-        tasks_on = False
-        promo_on = False
-        _method = None
+            if list_res.status_code == 200:
+                tasks = list_res.json().get('tasks', [])
+                all_completed = all(task['isCompleted'] or task['id'] == 'invite_friends' for task in tasks)
 
-        while True:
-            try:
-                choice = show_menu(use_proxy, auto_upgrade, tasks_on, promo_on)
-                if choice == '1':
-                    use_proxy = not use_proxy
-                elif choice == '2':
-                    auto_upgrade = not auto_upgrade
-                    if auto_upgrade:
-                        _method = show_upgrade_menu()
-                        if _method not in ['1', '2', '3', '4']:
-                            auto_upgrade = False
-                elif choice == '3':
-                    tasks_on = not tasks_on
-                elif choice == '789':
-                    promo_on = not promo_on
-                elif choice == '8':
-                    setup_name = input(" Enter setup name (without space): ")
-                    setup_data = {
-                        'use_proxy': use_proxy,
-                        'auto_upgrade': auto_upgrade,
-                        '_method': _method,
-                        'tasks_on': tasks_on,
-                        'promo_on': promo_on,
-                    }
-                    save_setup(setup_name, setup_data)
-                elif choice == '0':
-                    run_bot(use_proxy, auto_upgrade, tasks_on, promo_on, _method)
-                elif choice == '9':
-                    break
+                if all_completed:
+                    log(f"{kng}All tasks have been claimed successfully\r", flush=True)
                 else:
-                    log(mrh + f"Invalid choice. Please try again.")
-                time.sleep(1)
-            except Exception as e:
-                log(mrh + f"An error occurred in the main loop: {kng}{str(e)}")
-                countdown_timer(10)
+                    for task in tasks:
+                        if not task['isCompleted']:
+                            check_url = f'{self.base_url}/interlude/check-task'
+                            data = json.dumps({"taskId": task['id']})
+                            check_res = requests.post(check_url, headers=self.headers, data=data, proxies=proxies)
 
+                            if check_res.status_code == 200 and check_res.json()['task']['isCompleted']:
+                                log(f"{hju}Task {pth}{task['id']} {hju}success\r", flush=True)
+                                countdown_timer(3)
+                            else:
+                                log(f"{hju}Task {mrh}failed {pth}{task['id']}\r", flush=True)
+                cek_task_dict[token] = True
+            else:
+                log(f"{hju}Failed to get task list {pth}{list_res.status_code}\r", flush=True)
+
+    def upgrade_passive(self, _method, proxies: None):
+        MAXIMUM_PRICE = config.get('MAXIMUM_PRICE', 2)
+
+        clicker_data = self._sync(proxies)
+        if 'interludeUser' in clicker_data:
+            user_info = clicker_data['interludeUser']
+            balance_coins = user_info['balanceDiamonds']
+        else:
+            log(mrh + f"Failed to get user data\r", flush=True)
+            return
+
+        upgrades = self.available_upgrades(proxies)
+        if not upgrades:
+            log(mrh + f"\rFailed to get data or no upgrades available\r", flush=True)
+            return
+
+        log(bru + f"Total card available: {pth}{len(upgrades)}", flush=True)
+
+        if _method == '1':
+            upg_sort = sorted(
+                [u for u in upgrades if u['price'] <= MAXIMUM_PRICE and u['price'] > 0],
+                key=lambda x: -x['profitPerHour'] / x['price'] if x['price'] > 0 else 0,
+                reverse=False
+            )
+        elif _method == '2':
+            upg_sort = sorted(
+                [u for u in upgrades if u['price'] <= MAXIMUM_PRICE and u['profitPerHour'] > 0 and u.get("price", 0) > 0],
+                key=lambda x: x['price'] / x["profitPerHour"] if x['profitPerHour'] > 0 else float('inf'),
+                reverse=False
+            )
+        elif _method == '4':
+            upg_sort = sorted(
+                [u for u in upgrades if u['price'] <= MAXIMUM_PRICE and u['price'] > 0 and u.get("profitPerHour", 0) > 0],
+                key=lambda x: x["profitPerHour"] / x["price"] if x['profitPerHour'] > 0 else float('inf'),
+                reverse=True
+            )
+        elif _method == '3':
+            upg_sort = [u for u in upgrades if u['price'] <= balance_coins and u['price'] <= MAXIMUM_PRICE]
+            if not upg_sort:
+                log(mrh + f"No upgrade available less than balance\r", flush=True)
+                return
+        else:
+            log(mrh + "Invalid option, please try again", flush=True)
+            return
+
+        if not upg_sort:
+            log(bru + f"No {pth}item {bru}available under {pth}{number(MAXIMUM_PRICE)}\r", flush=True)
+            return
+
+        any_upgrade_attempted = False
+        upgrades_purchased = False
+        while True:
+            for upgrade in upg_sort:
+                if upgrade['isAvailable'] and not upgrade['isExpired']:
+                    status = self.buy_upgrade(
+                        upgrade['id'], 
+                        upgrade['name'], 
+                        upgrade['level'], 
+                        upgrade['profitPerHour'], 
+                        upgrade['price'],
+                        proxies
+                    )
+                    
+                    if status == 'insufficient_funds':
+                        clicker_data = self._sync(proxies)
+                        if 'interludeUser' in clicker_data:
+                            user_info = clicker_data['interludeUser']
+                            balance_coins = user_info['balanceDiamonds']
+                            log(mrh + f"Balance after : {pth}{number(balance_coins)}")
+                        return
+                    elif status == 'success':
+                        upgrades_purchased = True
+                        continue
+                    else:
+                        continue
+            
+            if not any_upgrade_attempted:
+                log(bru + f"No {pth}item {bru}available under {pth}{number(MAXIMUM_PRICE)}\r", flush=True)
+                break
+            elif not upgrades_purchased:
+                any_upgrade_attempted = True
+
+    def available_upgrades(self, proxies=None):
+        url = f'{self.base_url}/interlude/upgrades-for-buy'
+        res = requests.post(url, headers=self.headers, proxies=proxies)
+        if res.status_code == 200:
+            return res.json()['upgradesForBuy']
+        else:
+            log(mrh + f"Failed to get upgrade list: {res.json()}\r", flush=True)
+            return []
+
+    def buy_upgrade(self, upgrade_id: str, upgrade_name: str, level: int, profitPerHour: float, price: float, proxies=None) -> str:
+        url = f'{self.base_url}/interlude/buy-upgrade'
+        data = json.dumps({"upgradeId": upgrade_id, "timestamp": int(time.time())})
+        res = requests.post(url, headers=self.headers, data=data, proxies=proxies)
+        DELAY_UPGRADE = config.get('DELAY_UPGRADE', False)
+        MIN_DELAY_UPGRADE = config.get('MIN_DELAY_UPGRADE',0)
+        MAX_DELAY_UPGRADE = config.get('MAX_DELAY_UPGRADE',1)
+        log(bru + f"Card {hju}name {pth}{upgrade_name}    \r", flush=True)
+        log(bru + f"Card {hju}price{pth} {number(price)}       \r", flush=True)
+        
+        if res.status_code == 200:
+            log(hju + f"Success {bru}| Level {pth}+{level} | +{kng}{profitPerHour}{pth}/h         \r", flush=True)
+            if DELAY_UPGRADE:
+                countdown_timer(randint(MIN_DELAY_UPGRADE, MAX_DELAY_UPGRADE))
+            else:
+                time.sleep(0.3)
+            return 'success'
+        else:
+            error_res = res.json()
+            if error_res.get('error_code') == 'INSUFFICIENT_FUNDS':
+                log(mrh + f"Insufficient {kng}funds for this card       ", flush=True)
+                return 'insufficient_funds'
+            elif error_res.get('error_code') == 'UPGRADE_COOLDOWN':
+                cooldown_time = error_res.get('cooldownSeconds')
+                log(bru + f"Card {kng}cooldown for {pth}{cooldown_time} {kng}seconds.  ", flush=True)
+                return 'cooldown'
+            elif error_res.get('error_code') == 'UPGRADE_MAX_LEVEL':
+                log(bru + f"Card {kng}is already on max level  ", flush=True)
+                return 'max_level'
+            elif error_res.get('error_code') == 'UPGRADE_NOT_AVAILABLE':
+                log(bru + f"Not Meet{mrh} criteria to buy this card", flush=True)
+                return 'not_available'
+            elif error_res.get('error_code') == 'UPGRADE_HAS_EXPIRED':
+                log(bru + f"Card {kng}has expired you'are late      ", flush=True)
+                return 'expired'
+            elif error_res.get('error_code') == 'EXCHANGE_NOT_SELECTED':
+                log(bru + f"To upgrade you need to select an exchange", flush=True)
+                self.exchange(proxies)
+            else:
+                log(kng + f"{res.json()}       ", flush=True)
+                return 'error'
